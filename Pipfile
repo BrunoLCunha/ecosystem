@@ -4,9 +4,13 @@ verify_ssl = true
 name = "pypi"
 
 [packages]
-arcade = "*"
+arcade = "==3.3.0"
+pymunk = "*"
+pytiled-parser = "*"
+pyglet = "*"
+pillow = "*"
 
 [dev-packages]
 
 [requires]
-python_version = "3.10"
+python_version = "3.13"
