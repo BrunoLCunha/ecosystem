@@ -5,10 +5,6 @@ name = "pypi"
 
 [packages]
 arcade = "==3.3.0"
-pymunk = "*"
-pytiled-parser = "*"
-pyglet = "*"
-pillow = "*"
 
 [dev-packages]
 

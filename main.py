@@ -88,10 +88,26 @@ class HealthBar:
 
     def draw(self, x, y):
         if self.current_health != self.max_health:
+            # Calculate health bar width
             health_width = (self.current_health / self.max_health) * HEALTH_BAR_WIDTH
             
-            arcade.draw_rectangle_filled(x, y + HEALTH_BAR_OFFSET_Y, HEALTH_BAR_WIDTH, HEALTH_BAR_HEIGHT, arcade.color.GRAY)
-            arcade.draw_rectangle_filled(x - (HEALTH_BAR_WIDTH - health_width) / 2, y + HEALTH_BAR_OFFSET_Y, health_width, HEALTH_BAR_HEIGHT, arcade.color.GREEN)
+            # Background of the health bar
+            center_x = x
+            center_y = y + HEALTH_BAR_OFFSET_Y
+            
+            # Use LRTB version
+            left = center_x - HEALTH_BAR_WIDTH / 2
+            right = center_x + HEALTH_BAR_WIDTH / 2
+            bottom = center_y - HEALTH_BAR_HEIGHT / 2
+            top = center_y + HEALTH_BAR_HEIGHT / 2
+            arcade.draw_lrbt_rectangle_filled(left, right, bottom, top, arcade.color.GRAY)
+
+            # The health itself
+            health_center_x = x - (HEALTH_BAR_WIDTH - health_width) / 2
+            health_left = health_center_x - health_width / 2
+            health_right = health_center_x + health_width / 2
+            arcade.draw_lrbt_rectangle_filled(health_left, health_right, bottom, top, arcade.color.GREEN)
+
 
     def update_health(self, new_health):
         self.current_health = max(0, min(self.max_health, new_health))
@@ -235,7 +251,7 @@ class Animal(LivingBeing):
         target.clear_state()
         self.clear_state()
 
-        self.reproduce_function(self.simulation, (self.center_x + 1, self.center_y + 1))
+        self.reproduce_function(coords=(self.center_x + 1, self.center_y + 1))
     
     def normalize(self, x, y):
         magnitude = math.sqrt(x**2 + y**2)
@@ -441,8 +457,7 @@ class PreySocialController():
                     diff_x = current_rabbit.center_x - rabbit.center_x
                     diff_y = current_rabbit.center_y - rabbit.center_y
                     if distance_square > 0:
-                        distance = arcade.get_distance(current_rabbit.center_x, current_rabbit.center_y,
-                                               rabbit.center_x, rabbit.center_y)
+                        distance = math.hypot(current_rabbit.center_x - rabbit.center_x, current_rabbit.center_y - rabbit.center_y)
                         diff_x /= distance
                         diff_y /= distance
                     dir[0] += diff_x
@@ -507,8 +522,7 @@ class PreySocialController():
             if square_distance < self.perception_radius * self.perception_radius:
                 diff_x = current_rabbit.center_x - predator.center_x
                 diff_y = current_rabbit.center_y - predator.center_y
-                distance = arcade.get_distance(current_rabbit.center_x, current_rabbit.center_y,
-                                            predator.center_x, predator.center_y)
+                distance = math.hypot(current_rabbit.center_x - predator.center_x, current_rabbit.center_y - predator.center_y)
                 if square_distance > 0:
                     diff_x /= distance
                     diff_y /= distance
@@ -546,8 +560,6 @@ class PreySprite(arcade.Sprite, Animal):
 
     def on_draw(self, highlight=False):
         Animal.on_draw(self)
-        super().draw(pixelated=True)
-
         if highlight:
             self.draw_perception_circle()
     
@@ -584,7 +596,7 @@ class PreySprite(arcade.Sprite, Animal):
         payoff = food_amount - predation_risk
         self.experience[self.strategy] += payoff * delta_time
     
-    def on_update(self, delta_time):
+    def update(self, delta_time):
         self.update_strategy()
         self.calculate_payoff(delta_time)
 
@@ -664,7 +676,7 @@ class PredatorSprite(arcade.Sprite, Animal):
                 prey_distance = get_square_distance(self.center_x, self.center_y, prey.center_x, prey.center_y)
                 if prey_distance < INTERACT_RANGE * INTERACT_RANGE:
                     self.current_target_object = prey
-                    self.attack(delta_time, self.current_target_object)
+                    self.eat(delta_time, self.current_target_object)
                     break
     
     def set_ambush_position(self):
@@ -701,7 +713,7 @@ class PredatorSprite(arcade.Sprite, Animal):
         payoff = success_rate * 2 - energy_spent
         self.experience[self.strategy] += payoff * deltatime
 
-    def on_update(self, delta_time):
+    def update(self, delta_time):
         self.update_strategy()
         self.calculate_payoff(delta_time)
 
@@ -718,7 +730,6 @@ class PredatorSprite(arcade.Sprite, Animal):
     
     def on_draw(self):
         Animal.on_draw(self)
-        super().draw(pixelated=True)
 
 class BushSprite(arcade.Sprite, Plant):
     def __init__(self, posX, posY, simulation):
@@ -727,13 +738,11 @@ class BushSprite(arcade.Sprite, Plant):
         self.center_x = posX
         self.center_y = posY
 
-    def on_update(self, delta_time):
-        self.update()
+    def update(self, delta_time):
         Plant.update(self, delta_time)
     
     def on_draw(self):
         Plant.on_draw(self)
-        super().draw(pixelated=True)
     
 class GrassPatchSprite(arcade.Sprite, Plant):
     def __init__(self, posX, posY, simulation):
@@ -742,24 +751,22 @@ class GrassPatchSprite(arcade.Sprite, Plant):
         self.center_x = posX
         self.center_y = posY
     
-    def on_update(self, delta_time):
-        self.update()
+    def update(self, delta_time):
         Plant.update(self, delta_time)
     
     def on_draw(self):
         Plant.on_draw(self)
-        super().draw(pixelated=True)
     
 class CardSprite(arcade.Sprite): 
     def __init__(self, card_type_obj, simulation):
-        scale = 1.5
-        super().__init__(CARD_IMAGE, scale=scale, center_x=-1000, center_y=-1000)
+        card_scale = 1.5
+        super().__init__(CARD_IMAGE, scale=card_scale, center_x=-1000, center_y=-1000)
         self.card_type_obj = card_type_obj
         self.simulation = simulation
         self.type = "CARD"
         self.fill_card_params()
         self.index = 0
-        self.scale = scale
+        self.card_scale = card_scale
     
     def fill_card_params(self):
         self.title = self.card_type_obj["title"]
@@ -769,7 +776,8 @@ class CardSprite(arcade.Sprite):
     
     def set_index(self, index):
         self.index = index
-        self.set_position(((self.index) * (128 + 20) + 20 + 128) * self.scale, 128 * self.scale)
+        self.center_x = ((self.index) * (128 + 20) + 20 + 128) * self.card_scale
+        self.center_y = 128 * self.card_scale
     
     def have_enough_resource(self, resource):
         if resource in self.cost:
@@ -821,11 +829,11 @@ class CardSprite(arcade.Sprite):
         
         return " ".join(elements)
 
-    def draw(self):
-        super().draw()
-        arcade.draw_text(f"{self.title}", self.center_x - 64 + 16, self.center_y + 40, arcade.color.BLACK, 15, align="center", width=128 - 32)
-        arcade.draw_text(f"{self.description}", self.center_x - 64 + 16, self.center_y - 20, arcade.color.BLACK, 10, align="center", width=128 - 32)
-        arcade.draw_text(f"{self.cost_to_text()}", self.center_x - 64 + 16, self.center_y - 95, arcade.color.BLACK, 10, align="center", width=128 - 32)
+    def draw_overlays(self):
+        # This method draws the text overlays. The sprite itself is drawn by the SpriteList.
+        arcade.draw_text(f"{self.title}", self.center_x - 64 + 16, self.center_y + 40, arcade.color.BLACK, 15, anchor_x="center", width=128 - 32)
+        arcade.draw_text(f"{self.description}", self.center_x - 64 + 16, self.center_y - 20, arcade.color.BLACK, 10, anchor_x="center", width=128 - 32)
+        arcade.draw_text(f"{self.cost_to_text()}", self.center_x - 64 + 16, self.center_y - 95, arcade.color.BLACK, 10, anchor_x="center", width=128 - 32)
 
 class Area:
     def __init__(self, center_x, center_y, width, height, area_type):
@@ -1035,51 +1043,50 @@ class EcosystemSimulator(arcade.Window):
 
         return True
     
-    def add_prey(self, child = False, coords = None):
-        posX, posY = random_int_xy([1, SCREEN_WIDTH - 1], [1, SCREEN_HEIGHT - 1])
-
+    def add_prey(self, coords=None):
         if coords:
-            posX = coords[0]
-            posY = coords[1]
+            posX, posY = coords
+        else:
+            posX, posY = random_int_xy([1, SCREEN_WIDTH - 1], [1, SCREEN_HEIGHT - 1])
 
         prey = PreySprite(posX, posY, self.bushes, self.grass_patches, self)
         self.preys.append(prey)
         self.entities.append(prey)
     
-    def add_predator(self, child = False, coords = None):
-        posX, posY = random_int_xy([1, SCREEN_WIDTH - 1], [1, SCREEN_HEIGHT - 1])
-
+    def add_predator(self, coords=None):
         if coords:
-            posX = coords[0]
-            posY = coords[1]
+            posX, posY = coords
+        else:
+            posX, posY = random_int_xy([1, SCREEN_WIDTH - 1], [1, SCREEN_HEIGHT - 1])
 
         predator = PredatorSprite(posX, posY, self)
         self.entities.append(predator)
         self.predators.append(predator)
 
     def on_draw(self):
-        arcade.start_render()
+        arcade.get_window().clear()
 
-        sorted_entities = sorted(self.entities, key=lambda entity: entity.bottom, reverse=True)
+        # In new Arcade, we draw the whole list at once.
+        self.entities.draw(pixelated=True)
 
+        # Now draw the custom overlays on top of the sprites.
         if self.preys:
             first_rabbit = self.preys[0]
-            first_rabbit.highlight = True
-        else:
-            first_rabbit = None
+            if self.is_debugging:
+                first_rabbit.draw_perception_circle()
 
-        for entity in sorted_entities:
-            if isinstance(entity, PreySprite):
-                highlight = (entity == first_rabbit)
-                entity.on_draw(highlight=highlight)
-            else:
-                entity.on_draw()
-        
+        # Draw health bars and needs icons for all entities
+        for entity in self.entities:
+            entity.on_draw()
+
+        # Draw cards and their text overlays
         if not self.hide_cards:
+            self.cards.draw()
             for card in self.cards:
-                card.draw()
+                card.draw_overlays() 
 
-        arcade.draw_rectangle_filled(SCREEN_WIDTH/2 - 650, SCREEN_HEIGHT - 25, color=(0, 0, 0, 150), width=SCREEN_WIDTH, height=30)
+        # Draw UI elements
+        arcade.draw_lrbt_rectangle_filled(0, SCREEN_WIDTH, SCREEN_HEIGHT - 50, SCREEN_HEIGHT, (0, 0, 0, 150))
         arcade.draw_text(f"r (rabbit): {self.resources_collected['rabbit']}, f (fox): {self.resources_collected['fox']}, b (bush): {self.resources_collected['bush']}, g (grass): {self.resources_collected['grass']}",
                         15, SCREEN_HEIGHT - 35, arcade.color.WHITE, 20)
         
@@ -1096,8 +1103,9 @@ class EcosystemSimulator(arcade.Window):
         start_x = 10
         start_y = SCREEN_HEIGHT - 80
         line_height = 20
-
-        arcade.draw_rectangle_filled(start_x - 20, start_y - 20, color=(0, 0, 0, 150), width=SCREEN_WIDTH, height=100)
+        
+        # Draw a background box for the instructions
+        arcade.draw_lrbt_rectangle_filled(5, 300, SCREEN_HEIGHT - 175, SCREEN_HEIGHT - 75, (0, 0, 0, 150))
 
         for i, line in enumerate(instructions):
             arcade.draw_text(
@@ -1128,7 +1136,7 @@ class EcosystemSimulator(arcade.Window):
         self.spatial_grid.clear()
         for prey in self.preys:
             self.spatial_grid.add_sprite(prey)
-        self.entities.on_update(delta_time)
+        self.entities.update()
         self.prey_social_controller.update(delta_time)
     
     def on_mouse_press(self, x, y, button, modifiers):
